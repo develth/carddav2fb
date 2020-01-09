@@ -88,7 +88,7 @@ class RunCommand extends Command
         error_log("Successful uploaded new FRITZ!Box phonebook");
 
         // uploading background image
-        if (count($this->config['fritzbox']['fritzfons']) && $this->config['phonebook']['id'] == 0) {
+        if (isset($this->config['fritzbox']['fritzfons']) && count($this->config['fritzbox']['fritzfons']) && $this->config['phonebook']['id'] == 0) {
             uploadBackgroundImage($savedAttributes, $this->config['fritzbox']);
         }
 

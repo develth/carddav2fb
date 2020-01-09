@@ -62,8 +62,9 @@ class Backend
             $this->setUrl($url);
         }
 
+        // If sending DEPTH, first response tag is empty / with invalid address-data. Remove?
         $this->setClientOptions([
-            'headers' => [
+                'headers' => [
                 'Depth' => 1
             ]
         ]);
@@ -136,20 +137,19 @@ class Backend
     public function getVcards(): array
     {
         try {
-            $response = $this->getCachedClient()->request('REPORT', $this->url, [
-                'headers' => [
-					'Content-Type' => 'text/xml'
-				],
-                'body' => <<<EOD
-<?xml version="1.0" encoding="utf-8"?>
-<C:addressbook-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-    <D:prop>
-        <D:getetag/>
-        <C:address-data content-type="text/vcard"/>
-    </D:prop>
-</C:addressbook-query>
+            $response = $this->getCachedClient()->request('PROPFIND', $this->url, [
+                    'header' => [
+                        'Content-Type' => 'application/xml',
+                    ],
+                    'body' => <<<EOD
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+  <D:prop>
+     <C:address-data />
+     <D:getetag />
+  </D:prop>
+</D:propfind>
 EOD
-            ]);
+    ]);
         } catch (RequestException $e) {
             if ($e->hasResponse() && 404 == $e->getResponse()->getStatusCode()) {
                 error_log('Ignoring empty response from carddav REPORT request');
@@ -173,7 +173,11 @@ EOD
             foreach ($response->propstat->prop as $prop) {
                 $content = (string)$prop->{'address-data'};
 
-                $vcard = Reader::read($content);
+                try {
+                    $vcard = Reader::read($content);
+                } catch (\Exception $x) {
+                    continue;
+                }
                 $vcard = $this->enrichVcard($vcard);
                 $cards[] = $vcard;
 
@@ -310,7 +314,7 @@ EOD
             $additional,
             $prefix,
             $suffix
-        ) = explode(';', $value);
+            ) = explode(';', $value);
         return [
             'LASTNAME' => $lastname,
             'FIRSTNAME' => $firstname,
